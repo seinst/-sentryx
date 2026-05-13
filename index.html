@@ -1,0 +1,1662 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sentryx — 공급망 다크웹 보안 점검</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Bebas+Neue&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+<style>
+/* ════════════════════════════════════════
+   TOKENS
+════════════════════════════════════════ */
+:root {
+  --red:    #C8001E;
+  --red-d:  #9e0017;
+  --red-l:  #ff6676;
+  --dark:   #0a0a0a;
+  --mid:    #141414;
+  --card:   #1a1a1a;
+  --border: #2a2a2a;
+  --warm:   #f4f1ec;
+  --warm2:  #e8e3db;
+  --text:   #ededed;
+  --muted:  #888;
+  --white:  #ffffff;
+}
+
+/* ════════════════════════════════════════
+   RESET + BASE
+════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'Noto Sans KR', sans-serif;
+  background: var(--dark);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--dark); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* ════════════════════════════════════════
+   NAVBAR
+════════════════════════════════════════ */
+.navbar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 999;
+  background: rgba(10,10,10,0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+  height: 60px;
+  display: flex;
+  align-items: center;
+  padding: 0 40px;
+  gap: 0;
+}
+
+.nav-logo {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 22px;
+  color: var(--white);
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: opacity 0.2s;
+}
+.nav-logo:hover { opacity: 0.8; }
+.nav-logo span { color: var(--red); }
+
+.nav-sep { flex: 1; }
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.nav-link {
+  position: relative;
+  padding: 8px 18px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+  cursor: pointer;
+  letter-spacing: 0.04em;
+  transition: color 0.2s;
+  border-radius: 2px;
+  white-space: nowrap;
+}
+.nav-link:hover { color: var(--white); }
+.nav-link.active {
+  color: var(--white);
+  background: rgba(200,0,30,0.12);
+}
+.nav-link.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 18px; right: 18px;
+  height: 2px;
+  background: var(--red);
+  border-radius: 1px;
+}
+
+.nav-cta {
+  margin-left: 16px;
+  background: var(--red);
+  color: var(--white);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 8px 20px;
+  border-radius: 2px;
+  cursor: pointer;
+  letter-spacing: 0.06em;
+  border: none;
+  transition: background 0.2s, transform 0.15s;
+  white-space: nowrap;
+}
+.nav-cta:hover { background: var(--red-d); transform: translateY(-1px); }
+
+/* step indicator */
+.nav-steps {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 32px;
+}
+.nav-step {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--border);
+  transition: background 0.3s, transform 0.3s;
+  cursor: pointer;
+}
+.nav-step.active {
+  background: var(--red);
+  transform: scale(1.4);
+}
+
+/* ════════════════════════════════════════
+   ROUTER WRAPPER
+════════════════════════════════════════ */
+.pages-wrap { padding-top: 60px; }
+
+.page {
+  display: none;
+  animation: fadeUp 0.45s ease both;
+}
+.page.active { display: block; }
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ════════════════════════════════════════
+   SHARED COMPONENTS
+════════════════════════════════════════ */
+.section {
+  padding: 88px 0;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding-left: 48px;
+  padding-right: 48px;
+}
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--red-l);
+  margin-bottom: 20px;
+}
+.eyebrow-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--red-l);
+  animation: blink 1.6s infinite;
+}
+@keyframes blink {
+  0%,100% { opacity:1; } 50% { opacity:0.15; }
+}
+
+.tag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--red-l);
+  border-bottom: 2px solid var(--red);
+  padding-bottom: 4px;
+  margin-bottom: 14px;
+}
+
+.display-title {
+  font-family: 'DM Serif Display', serif;
+  font-size: clamp(36px, 5vw, 60px);
+  line-height: 1.18;
+  color: var(--white);
+  margin-bottom: 20px;
+}
+.display-title em {
+  font-style: italic;
+  color: var(--red);
+}
+
+.section-title {
+  font-size: clamp(24px, 3vw, 34px);
+  font-weight: 900;
+  color: var(--white);
+  line-height: 1.3;
+  margin-bottom: 12px;
+}
+.section-title span { color: var(--red); }
+
+.lead {
+  font-size: 14.5px;
+  color: var(--muted);
+  line-height: 1.85;
+  max-width: 640px;
+  font-weight: 300;
+}
+
+.divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 0;
+}
+
+/* cards */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 24px;
+  transition: border-color 0.2s, transform 0.2s;
+}
+.card:hover { border-color: rgba(200,0,30,0.4); transform: translateY(-2px); }
+
+/* stat */
+.stat-num {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 54px;
+  color: var(--red);
+  line-height: 1;
+  margin-bottom: 6px;
+}
+
+/* hl bar */
+.hl-bar {
+  background: rgba(200,0,30,0.1);
+  border-left: 3px solid var(--red);
+  padding: 16px 20px;
+  border-radius: 0 4px 4px 0;
+  margin-bottom: 20px;
+}
+.hl-bar-title { font-size: 14px; font-weight: 700; color: var(--white); margin-bottom: 6px; }
+.hl-bar-body  { font-size: 13px; color: var(--muted); line-height: 1.7; }
+.hl-bar-body strong { color: var(--text); }
+
+/* grid helpers */
+.grid-3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; }
+.grid-2 { display: grid; grid-template-columns: repeat(2,1fr); gap: 16px; }
+.grid-4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
+
+@media (max-width:700px) {
+  .grid-3, .grid-4 { grid-template-columns: 1fr 1fr; }
+  .grid-2 { grid-template-columns: 1fr; }
+  .section { padding-left: 20px; padding-right: 20px; }
+}
+@media (max-width:480px) {
+  .grid-3, .grid-4 { grid-template-columns: 1fr; }
+}
+
+/* source badge */
+.src {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+  color: #666;
+  background: var(--mid);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  padding: 4px 10px;
+  margin-bottom: 24px;
+}
+
+/* ════════════════════════════════════════
+   PAGE 1 — WHY
+════════════════════════════════════════ */
+
+/* hero */
+.hero {
+  position: relative;
+  background: var(--dark);
+  overflow: hidden;
+  padding: 100px 48px 80px;
+  border-bottom: 1px solid var(--border);
+}
+.hero-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 2;
+}
+.hero-grid {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 60px;
+  align-items: center;
+}
+.hero-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.hero-bg svg { width: 100%; height: 100%; }
+
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(200,0,30,0.14);
+  border: 1px solid rgba(200,0,30,0.35);
+  color: var(--red-l);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  padding: 6px 14px;
+  border-radius: 2px;
+  margin-bottom: 28px;
+}
+
+.hero-stat-box {
+  background: var(--mid);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.hsb-top {
+  background: var(--red);
+  padding: 14px 20px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.85);
+}
+.hsb-list {
+  list-style: none;
+}
+.hsb-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12.5px;
+}
+.hsb-item:last-child { border: none; }
+.hsb-label { color: var(--muted); }
+.hsb-val {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 24px;
+  color: var(--red-l);
+  letter-spacing: 0.03em;
+}
+
+/* section band */
+.band {
+  background: var(--mid);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 20px 48px;
+}
+.band-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  color: rgba(255,255,255,0.5);
+}
+.band-inner strong { color: var(--white); }
+.band-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--red); flex-shrink: 0; }
+
+/* stat cards row */
+.stat-card { text-align: center; padding: 28px 16px; }
+.stat-card .stat-num { font-size: 48px; }
+.stat-label { font-size: 12px; color: var(--muted); line-height: 1.5; margin-top: 4px; }
+.stat-label strong { display: block; color: var(--text); font-size: 13px; margin-bottom: 2px; }
+.stat-src { font-size: 9.5px; color: #555; margin-top: 6px; }
+
+/* evidence rows */
+.evidence-row {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  align-items: start;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 14px;
+  transition: border-color 0.2s;
+}
+.evidence-row:hover { border-color: var(--red); }
+.ev-num {
+  background: var(--red);
+  color: var(--white);
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+  letter-spacing: 0.02em;
+}
+.ev-body {
+  background: var(--card);
+  padding: 16px 20px;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.7;
+}
+.ev-body strong { color: var(--white); display: block; margin-bottom: 4px; font-size: 14px; }
+.ev-body .ev-src { font-size: 10px; color: #555; margin-top: 6px; }
+
+/* score panel */
+.score-panel {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.score-left {
+  background: var(--red);
+  min-width: 140px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 28px 20px;
+  text-align: center;
+}
+.score-zero {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 80px;
+  color: var(--white);
+  line-height: 1;
+}
+.score-unit { font-size: 12px; color: rgba(255,255,255,0.7); font-weight: 700; letter-spacing: 0.08em; }
+.score-right {
+  flex: 1;
+  background: var(--card);
+  padding: 24px 28px;
+}
+.score-right h3 { font-size: 18px; font-weight: 900; color: var(--white); margin-bottom: 12px; line-height: 1.4; }
+.score-right p { font-size: 13px; color: var(--muted); line-height: 1.75; }
+.score-right p strong { color: var(--text); }
+
+/* ════════════════════════════════════════
+   PAGE 2 — ABOUT
+════════════════════════════════════════ */
+.about-hero {
+  background: linear-gradient(135deg, var(--red) 0%, #8a0014 100%);
+  padding: 80px 48px;
+  position: relative;
+  overflow: hidden;
+}
+.about-hero-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 2;
+}
+.about-hero h1 {
+  font-family: 'DM Serif Display', serif;
+  font-size: clamp(32px, 4.5vw, 52px);
+  color: var(--white);
+  line-height: 1.2;
+  margin-bottom: 16px;
+}
+.about-hero h1 em { font-style: italic; color: rgba(255,255,255,0.65); }
+.about-hero p {
+  font-size: 14px;
+  color: rgba(255,255,255,0.7);
+  line-height: 1.8;
+  max-width: 520px;
+  font-weight: 300;
+}
+.about-hero-deco {
+  position: absolute;
+  right: -80px; top: -80px;
+  width: 400px; height: 400px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.1);
+  pointer-events: none;
+}
+.about-hero-deco::after {
+  content: '';
+  position: absolute;
+  inset: 40px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.07);
+}
+
+/* process flow */
+.process-flow {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.proc {
+  flex: 1;
+  padding: 24px 16px;
+  background: var(--card);
+  border-right: 1px solid var(--border);
+  text-align: center;
+  position: relative;
+}
+.proc:last-child { border: none; }
+.proc::after {
+  content: '›';
+  position: absolute;
+  right: -10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 22px;
+  color: var(--red);
+  font-weight: 700;
+  z-index: 2;
+  background: var(--card);
+  padding: 4px 0;
+}
+.proc:last-child::after { display: none; }
+.proc-icon { font-size: 24px; margin-bottom: 10px; }
+.proc-step {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--red-l);
+  margin-bottom: 4px;
+}
+.proc-name { font-size: 13px; font-weight: 700; color: var(--white); margin-bottom: 5px; }
+.proc-desc { font-size: 11px; color: var(--muted); line-height: 1.5; }
+
+/* benefit cards */
+.benefit-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 24px;
+  transition: border-color 0.2s;
+}
+.benefit-card:hover { border-color: var(--red); }
+.bc-icon {
+  width: 40px; height: 40px;
+  background: rgba(200,0,30,0.15);
+  border: 1px solid rgba(200,0,30,0.3);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  margin-bottom: 14px;
+}
+.bc-title { font-size: 14px; font-weight: 700; color: var(--white); margin-bottom: 8px; }
+.bc-body { font-size: 12.5px; color: var(--muted); line-height: 1.7; }
+.bc-body strong { color: var(--text); }
+
+/* tech highlight */
+.tech-strip {
+  background: var(--mid);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 28px 32px;
+  display: flex;
+  align-items: center;
+  gap: 32px;
+}
+.tech-logo {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 28px;
+  color: var(--white);
+  letter-spacing: 0.06em;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  padding-right: 28px;
+}
+.tech-logo span { color: var(--red); }
+.tech-desc { font-size: 13px; color: var(--muted); line-height: 1.7; }
+.tech-desc strong { color: var(--text); }
+
+/* dark stat band */
+.dark-stats {
+  background: var(--red);
+  padding: 40px 48px;
+}
+.dark-stats-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(4,1fr);
+  gap: 0;
+}
+.ds {
+  text-align: center;
+  border-right: 1px solid rgba(255,255,255,0.18);
+  padding: 0 16px;
+}
+.ds:last-child { border: none; }
+.ds-n {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 46px;
+  color: var(--white);
+  line-height: 1;
+  margin-bottom: 6px;
+}
+.ds-d { font-size: 12px; color: rgba(255,255,255,0.7); line-height: 1.45; }
+
+/* ════════════════════════════════════════
+   PAGE 3 — APPLY
+════════════════════════════════════════ */
+.apply-layout {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 72px 48px;
+  display: grid;
+  grid-template-columns: 1fr 460px;
+  gap: 64px;
+  align-items: start;
+}
+
+@media (max-width: 860px) {
+  .apply-layout { grid-template-columns: 1fr; }
+  .hero-grid { grid-template-columns: 1fr; }
+  .hero-stat-box { display: none; }
+  .process-flow { flex-direction: column; }
+  .proc::after { display: none; }
+  .dark-stats-inner { grid-template-columns: 1fr 1fr; }
+  .tech-strip { flex-direction: column; align-items: flex-start; }
+  .tech-logo { border-right: none; border-bottom: 1px solid var(--border); padding-right: 0; padding-bottom: 16px; width: 100%; }
+  .score-panel { flex-direction: column; }
+  .score-left { min-width: unset; }
+}
+
+.apply-info h2 {
+  font-family: 'DM Serif Display', serif;
+  font-size: clamp(28px, 3.5vw, 42px);
+  color: var(--white);
+  line-height: 1.25;
+  margin-bottom: 16px;
+}
+.apply-info h2 em { font-style: italic; color: var(--red); }
+.apply-info .lead { font-size: 13.5px; margin-bottom: 32px; }
+
+/* info items */
+.info-list { list-style: none; display: flex; flex-direction: column; gap: 14px; margin-bottom: 32px; }
+.info-item {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+.info-check {
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background: rgba(200,0,30,0.2);
+  border: 1px solid var(--red);
+  color: var(--red-l);
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.info-item strong { color: var(--text); display: block; margin-bottom: 2px; }
+
+.apply-promo {
+  background: rgba(200,0,30,0.1);
+  border: 1px solid rgba(200,0,30,0.3);
+  border-radius: 6px;
+  padding: 20px 22px;
+}
+.apply-promo-tag {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--red-l);
+  margin-bottom: 8px;
+}
+.apply-promo h4 { font-size: 15px; color: var(--white); margin-bottom: 6px; }
+.apply-promo p { font-size: 12px; color: var(--muted); line-height: 1.6; }
+
+/* form */
+.form-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  position: sticky;
+  top: 80px;
+}
+.form-header {
+  background: var(--red);
+  padding: 20px 28px;
+}
+.form-header h3 { font-size: 16px; font-weight: 900; color: var(--white); margin-bottom: 4px; }
+.form-header p { font-size: 11.5px; color: rgba(255,255,255,0.7); }
+
+.form-body { padding: 28px; }
+
+.form-group { margin-bottom: 20px; }
+.form-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.form-required { color: var(--red-l); margin-left: 2px; }
+
+.form-input, .form-select, .form-textarea {
+  width: 100%;
+  background: var(--mid);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  font-family: 'Noto Sans KR', sans-serif;
+  font-size: 13.5px;
+  padding: 12px 14px;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  -webkit-appearance: none;
+}
+.form-input::placeholder, .form-textarea::placeholder { color: #555; }
+.form-input:focus, .form-select:focus, .form-textarea:focus {
+  border-color: var(--red);
+  box-shadow: 0 0 0 3px rgba(200,0,30,0.12);
+}
+.form-input.error { border-color: #ff4d4d; }
+
+.form-textarea { resize: vertical; min-height: 80px; }
+
+.form-select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  padding-right: 36px;
+  cursor: pointer;
+}
+.form-select option { background: #1a1a1a; }
+
+.form-error {
+  display: none;
+  font-size: 11px;
+  color: #ff6b6b;
+  margin-top: 5px;
+}
+.form-error.show { display: block; }
+
+.form-agree {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+  margin-bottom: 20px;
+  cursor: pointer;
+}
+.form-agree input[type="checkbox"] {
+  width: 16px; height: 16px;
+  border-radius: 2px;
+  flex-shrink: 0;
+  margin-top: 1px;
+  accent-color: var(--red);
+  cursor: pointer;
+}
+.form-agree a { color: var(--red-l); text-decoration: none; }
+
+.submit-btn {
+  width: 100%;
+  background: var(--red);
+  color: var(--white);
+  font-family: 'Noto Sans KR', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s;
+}
+.submit-btn:hover { background: var(--red-d); transform: translateY(-1px); }
+.submit-btn:active { transform: translateY(0); }
+.submit-btn:disabled { background: #555; cursor: not-allowed; transform: none; }
+
+/* success state */
+.form-success {
+  display: none;
+  text-align: center;
+  padding: 40px 28px;
+}
+.form-success.show { display: block; }
+.success-icon {
+  width: 60px; height: 60px;
+  border-radius: 50%;
+  background: rgba(200,0,30,0.15);
+  border: 2px solid var(--red);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  margin: 0 auto 20px;
+}
+.form-success h3 { font-size: 18px; font-weight: 900; color: var(--white); margin-bottom: 10px; }
+.form-success p { font-size: 13px; color: var(--muted); line-height: 1.7; }
+
+/* ════════════════════════════════════════
+   KISA QUOTE STYLES
+════════════════════════════════════════ */
+.kisa-header-strip {
+  background: #0d3b6e;
+  padding: 10px 48px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.8);
+}
+.kisa-header-strip strong { color: #fff; }
+.kisa-pill {
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 2px;
+  padding: 2px 10px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.1em;
+  flex-shrink: 0;
+}
+.kisa-quote-card {
+  background: #0d3b6e;
+  border-radius: 6px;
+  padding: 22px 24px;
+  margin-bottom: 16px;
+  position: relative;
+  overflow: hidden;
+}
+.kisa-quote-card::before {
+  content: '"';
+  position: absolute;
+  right: 16px;
+  top: -10px;
+  font-size: 80px;
+  color: rgba(255,255,255,0.06);
+  font-family: Georgia, serif;
+  line-height: 1;
+}
+.kisa-quote-tag {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.5);
+  margin-bottom: 10px;
+}
+.kisa-quote-text {
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.7;
+  font-style: italic;
+  margin-bottom: 10px;
+}
+.kisa-quote-src {
+  font-size: 10.5px;
+  color: rgba(255,255,255,0.45);
+}
+
+/* ════════════════════════════════════════
+   FOOTER
+════════════════════════════════════════ */
+footer {
+  background: var(--mid);
+  border-top: 1px solid var(--border);
+  padding: 28px 48px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+}
+.footer-logo {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 18px;
+  color: var(--white);
+}
+.footer-logo span { color: var(--red); }
+.footer-sub { font-size: 10px; color: #555; margin-top: 2px; }
+.footer-right { font-size: 11px; color: #555; text-align: right; line-height: 1.7; }
+
+/* ════════════════════════════════════════
+   UTILITY ANIMATIONS
+════════════════════════════════════════ */
+.fade-item {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 0.55s ease, transform 0.55s ease;
+}
+.fade-item.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════
+     NAVBAR
+══════════════════════════════════════ -->
+<nav class="navbar">
+  <div class="nav-logo" onclick="goTo(0)">i<span>Sentryx</span></div>
+  <div class="nav-sep"></div>
+  <div class="nav-links">
+    <div class="nav-link active" id="nl-0" onclick="goTo(0)">점검이 필요한 이유</div>
+    <div class="nav-link" id="nl-1" onclick="goTo(1)">센트릭스 소개</div>
+    <div class="nav-link" id="nl-2" onclick="goTo(2)">무료 점검 신청</div>
+  </div>
+  <div class="nav-steps">
+    <div class="nav-step active" id="ns-0" onclick="goTo(0)"></div>
+    <div class="nav-step" id="ns-1" onclick="goTo(1)"></div>
+    <div class="nav-step" id="ns-2" onclick="goTo(2)"></div>
+  </div>
+  <button class="nav-cta" onclick="goTo(2)">무료 신청 →</button>
+</nav>
+
+<div class="pages-wrap">
+
+<!-- ══════════════════════════════════════
+     PAGE 1 : WHY
+══════════════════════════════════════ -->
+<div class="page active" id="page-0">
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-bg">
+      <svg viewBox="0 0 1200 600" preserveAspectRatio="xMaxYMid slice" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="1100" cy="100" r="320" stroke="#C8001E" stroke-width="0.5" opacity="0.15"/>
+        <circle cx="1100" cy="100" r="480" stroke="#C8001E" stroke-width="0.3" opacity="0.08"/>
+        <circle cx="1100" cy="100" r="640" stroke="#C8001E" stroke-width="0.2" opacity="0.05"/>
+        <line x1="800" y1="0" x2="1200" y2="600" stroke="#ffffff" stroke-width="0.3" opacity="0.04"/>
+        <line x1="860" y1="0" x2="1260" y2="600" stroke="#ffffff" stroke-width="0.2" opacity="0.03"/>
+      </svg>
+    </div>
+    <div class="hero-inner">
+      <div class="hero-grid">
+        <div>
+          <div class="hero-badge">
+            <span class="eyebrow-dot"></span>
+            긴급 — 공공기관 사이버 보안 현황
+          </div>
+          <h1 class="display-title">
+            우리 기관 협력사 계정,<br>
+            지금 <em>다크웹에서<br>거래되고 있지 않습니까?</em>
+          </h1>
+          <p class="lead">
+            감사원·기재부·국정원·개인정보위의 공식 발표가 보여주는 현실 —
+            공공기관은 이미 위협에 노출되어 있으며, 사고 발생 시 경영평가 즉시 0점 처리됩니다.
+          </p>
+          <div style="margin-top:32px; display:flex; gap:12px; flex-wrap:wrap;">
+            <button class="nav-cta" style="font-size:13px; padding:12px 28px;" onclick="goTo(2)">무료 점검 신청하기 →</button>
+            <button onclick="goTo(1)" style="background:transparent; border:1px solid var(--border); color:var(--muted); font-size:13px; padding:12px 24px; border-radius:2px; cursor:pointer; font-family:inherit; transition:border-color 0.2s, color 0.2s;" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--white)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">서비스 소개 보기</button>
+          </div>
+        </div>
+        <div class="hero-stat-box">
+          <div class="hsb-top">📊 핵심 수치 — 공식 출처</div>
+          <ul class="hsb-list">
+            <li class="hsb-item"><span class="hsb-label">다크웹 공공부문 유출</span><span class="hsb-val">106만</span></li>
+            <li class="hsb-item"><span class="hsb-label">경영평가 보안 페널티</span><span class="hsb-val">0점</span></li>
+            <li class="hsb-item"><span class="hsb-label">모의해킹 취약 시스템</span><span class="hsb-val">7/7</span></li>
+            <li class="hsb-item"><span class="hsb-label">연간 불법유통 개인정보</span><span class="hsb-val">15만건</span></li>
+            <li class="hsb-item"><span class="hsb-label">정부 다크웹 대응 예산</span><span class="hsb-val">23억</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BAND -->
+  <div class="band">
+    <div class="band-inner">
+      <div class="band-dot"></div>
+      <span><strong>감사원·기획재정부·국가정보원·개인정보보호위원회·KISA</strong> 공식 발표 및 주요 언론 보도를 기반으로 작성된 자료입니다</span>
+    </div>
+  </div>
+
+  <!-- SECTION A: 감사원 -->
+  <div class="section fade-item">
+    <a href="https://www.newsworks.co.kr/news/articleView.html?idxno=828799" target="_blank"><div class="src">📰 뉴스웍스 · 2026.01.27 — 감사원 '개인정보 보호 및 관리실태' 감사 결과</div>
+    <div class="tag">FACT 01 — 감사원 공식 발표</div></a>
+    <h2 class="section-title">공공시스템 <span>7개 전부</span> 취약점 발견<br>다크웹에 이미 106만 건이 유통 중</h2>
+    <p class="lead" style="margin-bottom:40px;">감사원은 2026년 1월, 화이트해커 11명을 투입해 개인정보를 대량 보유한 7개 공공시스템을 모의 해킹했습니다. 결과는 단 하나의 예외도 없이 — <strong style="color:var(--text);">전체 7개에서 취약점이 발견</strong>됐습니다.</p>
+
+    <div class="grid-3" style="margin-bottom:32px;">
+      <div class="card stat-card">
+        <div class="stat-num">7/7</div>
+        <div class="stat-label"><strong>전체 모의해킹 대상</strong>에서 보안 취약점 발견</div>
+        <div class="stat-src">※ 감사원, 2026.01</div>
+      </div>
+      <div class="card stat-card">
+        <div class="stat-num">13만</div>
+        <div class="stat-label"><strong>단일 시스템 해킹 시</strong>탈취 가능한 주민번호 수</div>
+        <div class="stat-src">※ 감사원, 2026.01</div>
+      </div>
+      <div class="card stat-card">
+        <div class="stat-num">20분</div>
+        <div class="stat-label"><strong>1,000만 명 회원정보</strong> 전량 추출에 걸린 시간</div>
+        <div class="stat-src">※ 감사원, 2026.01</div>
+      </div>
+    </div>
+
+    <div class="hl-bar" style="margin-bottom:14px;">
+      <div class="hl-bar-title">🔴 다크웹에 이미 유통 중인 공공부문 개인정보</div>
+      <div class="hl-bar-body">감사원이 민간 보안업체와 수집한 결과, <strong>공공부문 계정 정보 106만여 건이 다크웹에서 유통</strong> 중이었습니다. 이 중 <strong>27.4%인 29만여 건</strong>은 웹사이트 정보까지 포함된 유효성 높은 데이터였습니다.</div>
+    </div>
+    <div class="hl-bar">
+      <div class="hl-bar-title">⚠️ 퇴직·전보 후에도 계정이 살아있다</div>
+      <div class="hl-bar-body">10개 주요 시스템 점검 결과, <strong>퇴직자·전보자 708명이 여전히 접근 권한을 보유</strong>하고 있었습니다. 구축·유지보수 협력사 직원이 퇴사해도 계정이 남아 있다면, 해당 계정이 다크웹에 유출되는 순간 기관 내부망 전체가 위험에 노출됩니다.</div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- SECTION B: 경영평가 -->
+  <div class="section fade-item">
+   <a href="https://www.asiae.co.kr/article/2025020510005210397" target="_blank"><div class="src">📰 아시아경제·머니투데이 · 2025.02.05 — 기재부 '2025 공공기관 경영평가 편람' 확정</div></a>
+    <div class="tag">FACT 02 — 기획재정부 정책</div>
+    <h2 class="section-title">보안 사고 한 번 = <span>경영평가 0점</span><br>성과급이 직결됩니다</h2>
+    <p class="lead" style="margin-bottom:36px;">기획재정부는 2025년부터 "개인정보 보호 및 사이버 안전 관련 중대 규정 위반 또는 보안 사고 발생 시 0점 부여 가능"이라는 조항을 신설했습니다. 중대 산업재해와 동일한 수준의 페널티입니다.</p>
+
+    <div class="score-panel" style="margin-bottom:28px;">
+      <div class="score-left">
+        <div class="score-zero">0</div>
+        <div class="score-unit">POINT</div>
+      </div>
+      <div class="score-right">
+        <h3>보안 사고 발생 즉시 — '안전 및 재난관리' 항목 0점 처리</h3>
+        <p>공공기관 경영평가는 매년 <strong>1~2점 차이로 등급이 갈립니다.</strong> 0점 처리는 곧 등급 하락을 의미하며, 직원 성과급은 <strong>최대 250%까지 차이</strong>가 날 수 있습니다. 임원 거취에도 직접적 영향을 미칩니다.<br><br>예방 조치 없이 사고가 터지면 <strong>소급 적용되며 수습할 방법이 없습니다.</strong></p>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="bc-icon">📊</div>
+        <div class="bc-title">2023년 공공기관 유출 신고 현황</div>
+        <div class="bc-body">개인정보보호위원회에 따르면 2023년 한 해에만 <strong>41개 공공기관이 개인정보 유출을 신고</strong>했습니다. 고용정보원 워크넷 해킹, 법원 전산망 1,014GB 유출 등이 포함됩니다.</div>
+      </div>
+      <div class="card">
+        <div class="bc-icon">⚡</div>
+        <div class="bc-title">예방이 유일한 방어</div>
+        <div class="bc-body">사고 발생 후에는 0점 처리를 막을 방법이 없습니다. <strong>지금 점검하고 문서화</strong>하는 것이 경영평가·국정원 실태평가 모두에서 기관의 보안 이행 의지를 입증하는 유일한 수단입니다.</div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- SECTION C: 국정원 + 개인정보위 + 공급망 -->
+  <div class="section fade-item">
+    <div class="tag">FACT 03 — 국정원·개인정보위·과기정통부</div>
+    <h2 class="section-title">제도가 바뀌고 있습니다 —<br><span>지금이 대응 적기입니다</span></h2>
+    <p class="lead" style="margin-bottom:36px;">국정원 실태평가, 개인정보위 다크웹 대응체계, SW 공급망 가이드라인이 동시에 강화되고 있습니다.</p>
+
+    <div class="evidence-row fade-item">
+      <div class="ev-num">①</div>
+      <div class="ev-body">
+        <strong>국정원 2026 사이버보안 실태평가 — 100점 중 20.5점 대폭 개편</strong>
+        정보보안 예산 배점 상향(2→3점), 가산점 4점 신설(AI보안관제·N2SF 등). 공급망 보안 이행 기관에 가산점 부여, 기재부 경영평가와 연계됩니다.
+        <a href="https://www.dailysecu.com/news/articleView.html?idxno=203344" target="_blank"><div class="ev-src">※ 데일리시큐 · 2025.12.13 — 국정원 사이버보안 평가지표 개편</div></a>
+      </div>
+    </div>
+    <div class="evidence-row fade-item">
+      <div class="ev-num">②</div>
+      <div class="ev-body">
+        <strong>개인정보위 23억 원 투입 — 다크웹 대응체계 구축 착수</strong>
+        KISA 자료 기준 6년간 불법유통 90만 건(연 15만 건). 한국인 다크웹 이용자 일평균 3만 2,524명으로 전 세계 4위. 정부 시스템이 가동되기 전 기관 스스로 점검해야 합니다.
+        <a href="https://www.sisajournal.com/news/articleView.html?idxno=352580" target="_blank"><div class="ev-src">※ 시사저널 · 2025.11.12 — 정부 다크웹 대응체계 구축 추진</div></a>
+      </div>
+    </div>
+    <div class="evidence-row fade-item">
+      <div class="ev-num">③</div>
+      <div class="ev-body">
+        <strong>과기정통부·국정원·KISA 합동 SW 공급망 보안 가이드라인 1.0</strong>
+        2024년 5월 발표. 기관이 협력사 전체의 보안 수준을 확인하도록 요구. 의무화 로드맵 진행 중. 가이드라인 이행 증빙 문서는 실태평가 가산점에 직접 활용됩니다.
+        <a href="https://www.korea.kr/news/policyNewsView.do?newsId=148958412" target="_blank"><div class="ev-src">※ 정책브리핑 · 2024.05.13</div></a>
+      </div>
+    </div>
+
+    <div class="evidence-row fade-item" style="border-color:#0d3b6e;">
+      <div class="ev-num" style="background:#0d3b6e;">④</div>
+      <div class="ev-body">
+        <strong style="color:#0d3b6e;">KISA 2025 보고서 — "다크웹 모니터링이 가장 효과적인 선제 수단"</strong>
+        한국인터넷진흥원은 협력사를 통한 공급망 공격을 2025년 핵심 위협으로 공식 분석했습니다. 보험 GA 협력사 침해사고(2025.04)를 포함, 다크웹 모니터링 + CTI 플랫폼 도입을 공식 권고합니다.
+        <div class="ev-src" style="color:#0d3b6e;">※ KISA, 개인정보 이슈 심층 분석 보고서(2025)</div>
+      </div>
+    </div>
+
+    <div style="margin-top:40px; text-align:center;">
+      <p style="font-size:14px; color:var(--muted); margin-bottom:20px;">지금 바로 우리 기관의 공급망 다크웹 노출 여부를 확인하세요</p>
+      <button class="nav-cta" style="font-size:14px; padding:14px 40px;" onclick="goTo(2)">무료 점검 신청하기 →</button>
+    </div>
+  </div>
+
+  <!-- KISA 전용 섹션 -->
+  <div class="kisa-header-strip" style="max-width:100%;">
+    <span class="kisa-pill">KISA 공식 보고서</span>
+    <span><strong>한국인터넷진흥원(KISA), 개인정보 이슈 심층 분석 보고서(2025)</strong> — 공급망 공격과 다크웹 대응 전략</span>
+  </div>
+  <div class="section fade-item" style="padding-top:52px;">
+    <div class="tag" style="color:#4a7fc1; border-color:#0d3b6e;">KISA 공식 분석 (2025)</div>
+    <h2 class="section-title">KISA도 명시했습니다 — <span style="color:#4a7fc1;">"협력사가 약한 고리"</span>이며<br>"다크웹 모니터링이 유일한 선제 수단"</h2>
+    <p class="lead" style="margin-bottom:36px;">감사원·기재부·국정원이 제도적 위험을 경고했다면, KISA는 <strong style="color:var(--text);">기술적 메커니즘과 대응 전략</strong>을 제시합니다. 두 인용문은 KISA 보고서 원문 그대로입니다.</p>
+
+    <div class="kisa-quote-card" style="margin-bottom:16px;">
+      <div class="kisa-quote-tag">원문 인용 — 협력사 계정정보를 통한 공급망 공격(Supply Chain Attack)</div>
+      <div class="kisa-quote-text">
+        "이 약한 고리는 바로 주요 기업과 업무를 수행하는 1차 협력사, 외주 개발사 등 공급망 내의 파트너사들이다."
+      </div>
+      <div class="kisa-quote-src">KISA, 개인정보 이슈 심층 분석 보고서(2025)</div>
+    </div>
+
+    <div class="kisa-quote-card" style="margin-bottom:28px;">
+      <div class="kisa-quote-tag">원문 인용 — 다크웹 개인정보 불법 유통 대응 전략 / 기술적 방어 및 선제적 위협 인텔리전스 활용</div>
+      <div class="kisa-quote-text">
+        "다크웹 모니터링은 유출된 계정 정보를 사전에 확보하여 조직에 대한 위협을 선제적으로 파악하는 가장 효과적인 방수단이다. 대규모DB 덤프는 수작업 분석이 불가능하므로, 조직 도메인 포함 여부, 해시 패턴 등을 자동으로 분석하여 위협 우선순위를 결정하고 대응 시간을 단축하는 자동 분석 CTI(Cyber Threat Intelligence) 플랫폼 도입이 필요하다."
+      </div>
+      <div class="kisa-quote-src">KISA, 개인정보 이슈 심층 분석 보고서(2025)</div>
+    </div>
+
+    <div class="grid-2">
+      <div class="benefit-card">
+        <div class="bc-icon">🌐</div>
+        <div class="bc-title">글로벌 사례 — 애플/콴타컴퓨터 (2021)</div>
+        <div class="bc-body">랜섬웨어 조직 REvil이 애플을 직접 공격하는 대신 <strong>제조 협력업체 콴타컴퓨터를 해킹</strong>하여 신형 제품 도면을 유출. KISA가 대표적 공급망 공격 글로벌 사례로 공식 기재.</div>
+      </div>
+      <div class="benefit-card">
+        <div class="bc-icon">🏢</div>
+        <div class="bc-title">국내 사례 — 보험 GA 침해사고 (2025.04)</div>
+        <div class="bc-body">보험영업지원 IT 서비스 <strong>협력사 보안 문제가 전체 보험 대리점(GA)으로 확산</strong>되어 직접 피해 발생. KISA 2025 보고서가 공식 수록한 국내 공급망 공격 최신 사례.</div>
+      </div>
+    </div>
+
+    <div class="hl-bar" style="background:rgba(13,59,110,0.12); border-color:#0d3b6e; margin-top:20px;">
+      <div class="hl-bar-title" style="color:#4a7fc1;">💡 센트릭스 = KISA가 권고하는 CTI 플랫폼</div>
+      <div class="hl-bar-body">Stealthmole 기반 <strong>도메인 자동 매칭·해시 패턴 분석</strong>으로 수작업 없이 위협 우선순위를 결정합니다. KISA 보고서가 공식 권고한 방법론을 공공기관이 즉시 적용할 수 있는 서비스입니다.</div>
+    </div>
+  </div>
+
+  <footer>
+    <div>
+      <div class="footer-logo">i<span>Sentryx</span></div>
+      <div class="footer-sub">Powered by Stealthmole Intelligence</div>
+    </div>
+    <div class="footer-right">
+      본 자료의 수치는 감사원·기재부·국정원·개인정보위·KISA 공식 발표 및 언론 보도를 출처로 합니다.<br>
+      © 2026. (주)플랜아이. All rights reserved.
+    </div>
+  </footer>
+</div><!-- /page-0 -->
+
+
+<!-- ══════════════════════════════════════
+     PAGE 2 : ABOUT
+══════════════════════════════════════ -->
+<div class="page" id="page-1">
+
+  <div class="about-hero">
+    <div class="about-hero-deco"></div>
+    <div class="about-hero-inner">
+      <div class="eyebrow"><span class="eyebrow-dot"></span>공급망 다크웹 보안 서비스</div>
+      <h1>공급망의 <em>보이지 않는 구멍</em>을<br>센트릭스가 막습니다</h1>
+      <p>구축·유지보수 협력사 직원 계정의 다크웹 유출 여부를 전수 점검하고, 경영평가·국정원 실태평가에 즉시 제출 가능한 공식 리포트를 제공합니다.</p>
+    </div>
+  </div>
+
+  <!-- 왜 공급망인가 -->
+  <div class="section fade-item">
+    <div class="tag">공격 경로 분석</div>
+    <h2 class="section-title">해커는 정문이 아니라 <span>협력사 계정</span>으로 들어옵니다</h2>
+    <p class="lead" style="margin-bottom:36px;">법원 전산망 1,014GB 유출(2023), 워크넷 23만 명 유출(2023), 보험 GA 협력사 침해사고(2025) — KISA는 이를 모두 '공급망 공격'으로 공식 분류했습니다.</p>
+
+    <div class="grid-3" style="margin-bottom:28px;">
+      <div class="benefit-card">
+        <div class="bc-icon">🔑</div>
+        <div class="bc-title">협력사 계정 = 기관 내부망 입구</div>
+        <div class="bc-body">외부 인력의 이메일·VPN 계정이 다크웹에 유출되면 <strong>해당 기관의 내부 시스템까지 침투 경로가 열립니다.</strong> 기관 자체 보안과 무관하게 위협에 노출됩니다.</div>
+      </div>
+      <div class="benefit-card">
+        <div class="bc-icon">👤</div>
+        <div class="bc-title">기관은 유출 사실을 모릅니다</div>
+        <div class="bc-body">협력사 직원의 계정이 다크웹에서 거래되어도, 해당 사실이 기관에 통보되는 시스템이 없습니다. <strong>평균 침해 탐지까지 수개월~수년이 소요</strong>됩니다.</div>
+      </div>
+      <div class="benefit-card">
+        <div class="bc-icon">📋</div>
+        <div class="bc-title">기관이 책임을 집니다</div>
+        <div class="bc-body">협력사 계정 탈취로 인한 사고에서도 <strong>경영평가 0점 처리와 개인정보보호 수준 평가 하락은 기관의 몫</strong>입니다. 공급망 보안 책임은 기관에 귀속됩니다.</div>
+      </div>
+    </div>
+
+    <div class="kisa-quote-card">
+      <div class="kisa-quote-tag">KISA 원문 인용 — 개인정보 이슈 심층 분석 보고서(2025)</div>
+      <div class="kisa-quote-text">
+        "이 약한 고리는 바로 주요 기업과 업무를 수행하는 1차 협력사, 외주 개발사 등 공급망 내의 파트너사들이다."
+      </div>
+      <div class="kisa-quote-src">공격자가 협력사 계정을 탈취하면, 궁극적 타깃인 기관의 핵심 정보까지 접근 가능합니다.</div>
+    </div>
+  </div>
+
+  <!-- 통계 밴드 -->
+  <div class="dark-stats">
+    <div class="dark-stats-inner">
+      <div class="ds">
+        <div class="ds-n">106만</div>
+        <div class="ds-d">다크웹 유통<br>공공부문 개인정보</div>
+      </div>
+      <div class="ds">
+        <div class="ds-n">29만</div>
+        <div class="ds-d">웹사이트 포함<br>유효성 높은 계정</div>
+      </div>
+      <div class="ds">
+        <div class="ds-n">708명</div>
+        <div class="ds-d">퇴직 후에도<br>접근 권한 유지 인원</div>
+      </div>
+      <div class="ds">
+        <div class="ds-n">41개</div>
+        <div class="ds-d">2023년 유출 신고<br>공공기관 수</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 서비스 프로세스 -->
+  <div class="section fade-item">
+    <div class="tag">서비스 프로세스</div>
+    <h2 class="section-title">5단계로 완성되는 <span>공급망 보안 점검</span></h2>
+    <p class="lead" style="margin-bottom:36px;">참여 인력 정보 제출부터 조치 권고까지, 기관 담당자가 별도 작업 없이 리포트를 받아볼 수 있습니다.</p>
+
+    <div class="process-flow" style="margin-bottom:32px;">
+      <div class="proc">
+        <div class="proc-icon">📋</div>
+        <div class="proc-step">STEP 01</div>
+        <div class="proc-name">정보 수집</div>
+        <div class="proc-desc">참여 인력 이메일·도메인 리스트 제출</div>
+      </div>
+      <div class="proc">
+        <div class="proc-icon">🔍</div>
+        <div class="proc-step">STEP 02</div>
+        <div class="proc-name">다크웹 스캔</div>
+        <div class="proc-desc">Stealthmole 글로벌 인텔리전스 탐지</div>
+      </div>
+      <div class="proc">
+        <div class="proc-icon">⚠️</div>
+        <div class="proc-step">STEP 03</div>
+        <div class="proc-name">위협 분석</div>
+        <div class="proc-desc">유출 경로·위험도 분류 및 검증</div>
+      </div>
+      <div class="proc">
+        <div class="proc-icon">📄</div>
+        <div class="proc-step">STEP 04</div>
+        <div class="proc-name">공식 리포트</div>
+        <div class="proc-desc">경영평가 제출용 공식 문서 발행</div>
+      </div>
+      <div class="proc">
+        <div class="proc-icon">🛡️</div>
+        <div class="proc-step">STEP 05</div>
+        <div class="proc-name">조치 권고</div>
+        <div class="proc-desc">계정 교체·보안 강화 가이드 제공</div>
+      </div>
+    </div>
+
+    <!-- 기술 기반 -->
+    <div class="tech-strip">
+      <div class="tech-logo">Stealth<span>mole</span></div>
+      <div class="tech-desc">센트릭스는 글로벌 다크웹 위협 인텔리전스 플랫폼 <strong>Stealthmole</strong>을 기반으로 운영됩니다. 실시간으로 다크웹·딥웹·텔레그램 등 음성 채널을 모니터링하며, 국내외 다수의 정부·공공기관·금융기관에 서비스를 제공하고 있습니다. 단순 키워드 탐색이 아닌 <strong>AI 기반 계정 매칭 및 유효성 검증</strong>으로 오탐을 최소화합니다.</div>
+    </div>
+  </div>
+
+  <!-- 도입 효과 -->
+  <div class="section fade-item" style="padding-top:0;">
+    <div class="tag">도입 효과</div>
+    <h2 class="section-title">점검 리포트가 주는 <span>4가지 가치</span></h2>
+
+    <div class="grid-2">
+      <div class="benefit-card">
+        <div class="bc-icon">🏆</div>
+        <div class="bc-title">경영평가 0점 사전 예방</div>
+        <div class="bc-body">점검 리포트는 기관이 보안 관리 의지를 입증하는 <strong>공식 근거 자료</strong>입니다. 사고 발생 이전에 이행 증빙을 확보하는 유일한 방법입니다.</div>
+      </div>
+      <div class="benefit-card">
+        <div class="bc-icon">📈</div>
+        <div class="bc-title">국정원 실태평가 가점 활용</div>
+        <div class="bc-body">공급망 보안 이행 증빙 문서로 <strong>국정원 사이버보안 실태평가 가산점 항목</strong>에 즉시 대응할 수 있습니다. 기재부 경영평가와 연계됩니다.</div>
+      </div>
+      <div class="benefit-card">
+        <div class="bc-icon">📑</div>
+        <div class="bc-title">SW 공급망 가이드라인 이행</div>
+        <div class="bc-body">과기정통부·국정원·KISA 합동 <strong>SW 공급망 보안 가이드라인 1.0</strong>의 핵심 요건을 충족하는 점검 프로세스로, 제도화에 선제 대응합니다.</div>
+      </div>
+      <div class="benefit-card">
+        <div class="bc-icon">🚨</div>
+        <div class="bc-title">사고 전 선제 대응</div>
+        <div class="bc-body">정부 다크웹 대응체계가 가동되기 전, <strong>지금 당장 우리 기관의 공급망을 점검</strong>할 수 있는 실질적인 방법입니다.</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="background:var(--mid); border-top:1px solid var(--border); border-bottom:1px solid var(--border); padding:40px 48px; text-align:center;">
+    <p style="font-size:13px; color:var(--muted); margin-bottom:16px;">공공기관 한정 출시 기념 특가 · 선착순 조기 종료</p>
+    <button class="nav-cta" style="font-size:14px; padding:14px 44px;" onclick="goTo(2)">지금 무료 점검 신청하기 →</button>
+  </div>
+
+  <footer>
+    <div>
+      <div class="footer-logo">i<span>Sentryx</span></div>
+      <div class="footer-sub">Powered by Stealthmole Intelligence</div>
+    </div>
+    <div class="footer-right">
+      문의: 담당자명 · 000-0000-0000 · contact@company.com<br>
+      회사명 · 주소 · 사업자등록번호
+    </div>
+  </footer>
+</div><!-- /page-1 -->
+
+
+<!-- ══════════════════════════════════════
+     PAGE 3 : APPLY
+══════════════════════════════════════ -->
+<div class="page" id="page-2">
+
+  <div style="background:var(--mid); border-bottom:1px solid var(--border); padding:48px 48px 0;">
+    <div style="max-width:1100px; margin:0 auto;">
+      <div class="eyebrow"><span class="eyebrow-dot"></span>출시 기념 특별 프로모션</div>
+      <h1 class="display-title" style="font-size:clamp(28px,4vw,48px);">
+        지금 신청하면 <em>공공기관 특가</em>로<br>다크웹 공급망 전수 점검
+      </h1>
+    </div>
+  </div>
+
+  <div class="apply-layout">
+
+    <!-- LEFT INFO -->
+    <div class="apply-info">
+      <p class="lead">기존 구축·유지보수 기관 대상 한정 제공. 점검 리포트는 경영평가·국정원 실태평가 제출 자료로 즉시 활용 가능합니다.</p>
+
+      <ul class="info-list">
+        <li class="info-item">
+          <div class="info-check">✓</div>
+          <div>
+            <strong>공식 리포트 즉시 발행</strong>
+            경영평가 및 국정원 사이버보안 실태평가 제출용 공식 문서로 바로 사용 가능합니다.
+          </div>
+        </li>
+        <li class="info-item">
+          <div class="info-check">✓</div>
+          <div>
+            <strong>Stealthmole 글로벌 인텔리전스</strong>
+            단순 키워드 탐색이 아닌 AI 기반 계정 매칭으로 실제 유출 여부를 정밀 검증합니다.
+          </div>
+        </li>
+        <li class="info-item">
+          <div class="info-check">✓</div>
+          <div>
+            <strong>빠른 점검 결과</strong>
+            신청 후 영업일 기준 3~5일 내 예비 결과 제공, 최종 리포트 발행까지 완료합니다.
+          </div>
+        </li>
+        <li class="info-item">
+          <div class="info-check">✓</div>
+          <div>
+            <strong>조치 권고 포함</strong>
+            유출 계정 발견 시 계정 교체 방법·보안 강화 가이드를 담당자에게 직접 안내합니다.
+          </div>
+        </li>
+      </ul>
+
+      <div class="apply-promo">
+        <div class="apply-promo-tag">📢 출시 기념 특별 혜택</div>
+        <h4>공공기관 한정 · 무료 상담 + 예비 점검 제공</h4>
+        <p>정식 계약 이전에 무료로 상담을 진행하고, 주요 협력사 도메인에 대한 예비 다크웹 스캔 결과를 먼저 확인하실 수 있습니다. 수량 소진 시 조기 종료될 수 있습니다.</p>
+      </div>
+
+      <!-- 뉴스 요약 미니 -->
+      <div style="margin-top:28px;">
+        <div class="tag">관련 뉴스 요약</div>
+        <div style="display:flex; flex-direction:column; gap:10px; margin-top:14px;">
+          <div style="display:flex; gap:12px; align-items:flex-start; font-size:12px; color:var(--muted); line-height:1.5;">
+            <span style="color:var(--red); flex-shrink:0; font-weight:700;">→</span>
+            <span><strong style="color:var(--text);">감사원 (2026.01)</strong> — 공공시스템 7곳 모의해킹, 전부 취약점·다크웹 106만 건 유통 확인</span>
+          </div>
+          <div style="display:flex; gap:12px; align-items:flex-start; font-size:12px; color:var(--muted); line-height:1.5;">
+            <span style="color:var(--red); flex-shrink:0; font-weight:700;">→</span>
+            <span><strong style="color:var(--text);">기재부 (2025.02)</strong> — 보안 사고 발생 기관 경영평가 0점, 성과급 최대 250% 차이</span>
+          </div>
+          <div style="display:flex; gap:12px; align-items:flex-start; font-size:12px; color:var(--muted); line-height:1.5;">
+            <span style="color:var(--red); flex-shrink:0; font-weight:700;">→</span>
+            <span><strong style="color:var(--text);">국정원 (2025.12)</strong> — 2026 실태평가 20.5점 개편, 공급망 보안 가산점 신설</span>
+          </div>
+          <div style="display:flex; gap:12px; align-items:flex-start; font-size:12px; color:var(--muted); line-height:1.5;">
+            <span style="color:var(--red); flex-shrink:0; font-weight:700;">→</span>
+            <span><strong style="color:var(--text);">개인정보위 (2025.11)</strong> — 23억 규모 다크웹 대응체계 구축, KISA 연 15만 건 불법유통 확인</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT FORM -->
+    <div class="form-card">
+      <div class="form-header">
+        <h3>무료 상담 및 점검 신청</h3>
+        <p>담당자가 확인 후 2영업일 내 연락드립니다</p>
+      </div>
+
+      <div class="form-body" id="form-body">
+        <div class="form-group">
+          <label class="form-label">기관명 <span class="form-required">*</span></label>
+          <input type="text" class="form-input" id="f-org" placeholder="○○연구원 / ○○공공기관">
+          <div class="form-error" id="e-org">기관명을 입력해 주세요.</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">기관 유형 <span class="form-required">*</span></label>
+          <select class="form-select" id="f-type">
+            <option value="" disabled selected>기관 유형을 선택해 주세요</option>
+            <option>출연연구기관 (정부출연연)</option>
+            <option>준정부기관</option>
+            <option>공기업</option>
+            <option>기타 공공기관</option>
+            <option>지방공기업</option>
+          </select>
+          <div class="form-error" id="e-type">기관 유형을 선택해 주세요.</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">담당자 성함 <span class="form-required">*</span></label>
+          <input type="text" class="form-input" id="f-name" placeholder="홍길동">
+          <div class="form-error" id="e-name">담당자 성함을 입력해 주세요.</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">부서 / 직책</label>
+          <input type="text" class="form-input" id="f-dept" placeholder="정보보안팀 / 팀장">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">기관 이메일 <span class="form-required">*</span></label>
+          <input type="email" class="form-input" id="f-email" placeholder="security@institute.re.kr">
+          <div class="form-error" id="e-email">유효한 이메일 주소를 입력해 주세요.</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">연락처 <span class="form-required">*</span></label>
+          <input type="tel" class="form-input" id="f-tel" placeholder="010-0000-0000" oninput="formatTel(this)">
+          <div class="form-error" id="e-tel">연락처를 입력해 주세요.</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">현재 구축·유지보수 협력사 수 (대략)</label>
+          <select class="form-select" id="f-vendors">
+            <option value="" disabled selected>협력사 규모를 선택해 주세요</option>
+            <option>1~5개사</option>
+            <option>6~15개사</option>
+            <option>16~30개사</option>
+            <option>31개사 이상</option>
+            <option>파악 중</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">문의 사항</label>
+          <textarea class="form-textarea" id="f-msg" placeholder="궁금하신 점이나 특이사항을 자유롭게 적어주세요."></textarea>
+        </div>
+
+        <label class="form-agree">
+          <input type="checkbox" id="f-agree">
+          <span>개인정보 수집·이용에 동의합니다. 수집된 정보는 상담 목적에만 사용되며 <a href="#">개인정보처리방침</a>에 따라 보호됩니다.</span>
+        </label>
+        <div class="form-error" id="e-agree">개인정보 수집·이용에 동의해 주세요.</div>
+
+        <button class="submit-btn" onclick="submitForm()">무료 상담 신청하기 →</button>
+      </div>
+
+      <div class="form-success" id="form-success">
+        <div class="success-icon">✓</div>
+        <h3>신청이 완료되었습니다!</h3>
+        <p>담당자가 확인 후 <strong>2영업일 내</strong>에<br>입력하신 연락처로 연락드리겠습니다.<br><br>센트릭스에 관심 가져주셔서 감사합니다.</p>
+        <button onclick="goTo(0)" style="margin-top:24px; background:transparent; border:1px solid var(--border); color:var(--muted); font-size:12px; padding:10px 20px; border-radius:2px; cursor:pointer; font-family:inherit;">처음으로 돌아가기</button>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>
+    <div>
+      <div class="footer-logo"><span>Sentryx</span></div>
+      <div class="footer-sub">Powered by Stealthmole Intelligence</div>
+    </div>
+    <div class="footer-right">
+      문의: 담당자명 · 000-0000-0000 · contact@company.com<br>
+      수신 거부: unsubscribe@company.com
+    </div>
+  </footer>
+</div><!-- /page-2 -->
+
+</div><!-- /pages-wrap -->
+
+<script>
+/* ════════════════════════════════════
+   ROUTER
+════════════════════════════════════ */
+let current = 0;
+
+function goTo(idx) {
+  // hide all
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+  document.querySelectorAll('.nav-step').forEach(s => s.classList.remove('active'));
+
+  // show target
+  document.getElementById('page-' + idx).classList.add('active');
+  document.getElementById('nl-' + idx).classList.add('active');
+  document.getElementById('ns-' + idx).classList.add('active');
+
+  current = idx;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  // trigger fade-in for visible items
+  setTimeout(triggerFades, 80);
+}
+
+/* ════════════════════════════════════
+   SCROLL FADE
+════════════════════════════════════ */
+function triggerFades() {
+  const items = document.querySelectorAll('.page.active .fade-item');
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry, i) => {
+      if (entry.isIntersecting) {
+        setTimeout(() => entry.target.classList.add('visible'), i * 80);
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.08 });
+
+  items.forEach(el => {
+    el.classList.remove('visible');
+    observer.observe(el);
+  });
+}
+
+/* ════════════════════════════════════
+   FORM
+════════════════════════════════════ */
+function formatTel(input) {
+  let v = input.value.replace(/\D/g, '');
+  if (v.length <= 3) input.value = v;
+  else if (v.length <= 7) input.value = v.slice(0,3) + '-' + v.slice(3);
+  else input.value = v.slice(0,3) + '-' + v.slice(3,7) + '-' + v.slice(7,11);
+}
+
+function showError(id, show) {
+  const el = document.getElementById(id);
+  if (el) el.classList.toggle('show', show);
+}
+
+function setErr(inputId, errId) {
+  const inp = document.getElementById(inputId);
+  if (inp) inp.classList.add('error');
+  showError(errId, true);
+}
+
+function clearErr(inputId, errId) {
+  const inp = document.getElementById(inputId);
+  if (inp) inp.classList.remove('error');
+  showError(errId, false);
+}
+
+// live clear on input
+['f-org','f-name','f-email','f-tel'].forEach(id => {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener('input', () => {
+    el.classList.remove('error');
+    const errId = 'e-' + id.replace('f-','');
+    showError(errId, false);
+  });
+});
+
+function submitForm() {
+  let valid = true;
+
+  const org = document.getElementById('f-org').value.trim();
+  const type = document.getElementById('f-type').value;
+  const name = document.getElementById('f-name').value.trim();
+  const email = document.getElementById('f-email').value.trim();
+  const tel = document.getElementById('f-tel').value.trim();
+  const agree = document.getElementById('f-agree').checked;
+
+  if (!org) { setErr('f-org','e-org'); valid = false; } else { clearErr('f-org','e-org'); }
+  if (!type) { showError('e-type',true); valid = false; } else { showError('e-type',false); }
+  if (!name) { setErr('f-name','e-name'); valid = false; } else { clearErr('f-name','e-name'); }
+
+  const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  if (!emailOk) { setErr('f-email','e-email'); valid = false; } else { clearErr('f-email','e-email'); }
+
+  if (!tel) { setErr('f-tel','e-tel'); valid = false; } else { clearErr('f-tel','e-tel'); }
+  if (!agree) { showError('e-agree',true); valid = false; } else { showError('e-agree',false); }
+
+  if (!valid) return;
+
+  // simulate submit
+  const btn = document.querySelector('.submit-btn');
+  btn.disabled = true;
+  btn.textContent = '처리 중...';
+
+  setTimeout(() => {
+    document.getElementById('form-body').style.display = 'none';
+    document.getElementById('form-success').classList.add('show');
+  }, 900);
+}
+
+/* init */
+triggerFades();
+</script>
+</body>
+</html>
